@@ -123,7 +123,7 @@ def _get_eqx_home():
     eqx_home = os.path.expanduser(
         os.getenv(ENV_EQX_HOME,
                   os.path.join(os.getenv(ENV_XDG_CACHE_HOME,
-                                         DEFAULT_CACHE_DIR), 'eqx')))
+                                         DEFAULT_CACHE_DIR), 'equinox')))
     return eqx_home
 
 
@@ -280,18 +280,6 @@ def _check_repo_is_trusted(repo_owner, repo_name, owner_name_branch, trust_repo,
         or repo_owner in _TRUSTED_REPO_OWNERS
     )
 
-    # TODO: Remove `None` option in 2.0 and change the default to "check"
-    if trust_repo is None:
-        if not is_trusted:
-            warnings.warn(
-                "You are about to download and run code from an untrusted repository. In a future release, this won't "
-                "be allowed. To add the repository to your trusted list, change the command to {calling_fn}(..., "
-                "trust_repo=False) and a command prompt will appear asking for an explicit confirmation of trust, "
-                f"or {calling_fn}(..., trust_repo=True), which will assume that the prompt is to be answered with "
-                f"'yes'. You can also use {calling_fn}(..., trust_repo='check') which will only prompt for "
-                f"confirmation if the repo is not already trusted. This will eventually be the default behaviour")
-        return
-
     if (trust_repo is False) or (trust_repo == "check" and not is_trusted):
         response = input(
             f"The repository {owner_name} does not belong to the list of trusted repositories and as such cannot be downloaded. "
@@ -352,10 +340,6 @@ def get_dir():
     filesystem layout, with a default value ``~/.cache`` if the environment
     variable is not set.
     """
-    # Issue warning to move data if old env is set
-    if os.getenv('EQX_HUB'):
-        warnings.warn('EQX_HUB is deprecated, please use env EQX_HOME instead')
-
     if _hub_dir is not None:
         return _hub_dir
     return os.path.join(_get_eqx_home(), 'hub')
@@ -424,7 +408,7 @@ def list(github, force_reload=False, skip_validation=False, trust_repo=None):
     return entrypoints
 
 
-def help(github, model, force_reload=False, skip_validation=False, trust_repo=None):
+def help(github, model, force_reload=False, skip_validation=False, trust_repo='check'):
     r"""
     Show the docstring of entrypoint ``model``.
 
@@ -440,7 +424,7 @@ def help(github, model, force_reload=False, skip_validation=False, trust_repo=No
             specified by the ``github`` argument properly belongs to the repo owner. This will make
             requests to the GitHub API; you can specify a non-default GitHub token by setting the
             ``GITHUB_TOKEN`` environment variable. Default is ``False``.
-        trust_repo (bool, str or None): ``"check"``, ``True``, ``False`` or ``None``.
+        trust_repo (bool, str or None): ``"check"``, ``True``, ``False``.
             This parameter was introduced in v1.12 and helps ensuring that users
             only run code from repos that they trust.
 
@@ -451,14 +435,10 @@ def help(github, model, force_reload=False, skip_validation=False, trust_repo=No
             - If ``"check"``, the repo will be checked against the list of
               trusted repos in the cache. If it is not present in that list, the
               behaviour will fall back onto the ``trust_repo=False`` option.
-            - If ``None``: this will raise a warning, inviting the user to set
-              ``trust_repo`` to either ``False``, ``True`` or ``"check"``. This
-              is only present for backward compatibility and will be removed in
-              v2.0.
-
-            Default is ``None`` and will eventually change to ``"check"`` in v2.0.
+            
+            Default is ``check``.
     Example:
-        >>> print(eqxhub.help('pyeqx/vision', 'resnet18', force_reload=True))
+        >>> print(eqxhub.help('pytorch/vision', 'resnet18', force_reload=True))
     """
     repo_dir = _get_cache_or_reload(github, force_reload, trust_repo, "help", verbose=True,
                                     skip_validation=skip_validation)
@@ -472,7 +452,7 @@ def help(github, model, force_reload=False, skip_validation=False, trust_repo=No
     return entry.__doc__
 
 
-def load(repo_or_dir, model, *args, source='github', trust_repo=None, force_reload=False, verbose=True,
+def load(repo_or_dir, model, *args, source='github', trust_repo='check', force_reload=False, verbose=True,
          skip_validation=False,
          **kwargs):
     r"""
@@ -499,7 +479,7 @@ def load(repo_or_dir, model, *args, source='github', trust_repo=None, force_relo
         *args (optional): the corresponding args for callable ``model``.
         source (str, optional): 'github' or 'local'. Specifies how
             ``repo_or_dir`` is to be interpreted. Default is 'github'.
-        trust_repo (bool, str or None): ``"check"``, ``True``, ``False`` or ``None``.
+        trust_repo (bool, str): ``"check"``, ``True``, ``False``.
             This parameter was introduced in v1.12 and helps ensuring that users
             only run code from repos that they trust.
 
@@ -510,12 +490,8 @@ def load(repo_or_dir, model, *args, source='github', trust_repo=None, force_relo
             - If ``"check"``, the repo will be checked against the list of
               trusted repos in the cache. If it is not present in that list, the
               behaviour will fall back onto the ``trust_repo=False`` option.
-            - If ``None``: this will raise a warning, inviting the user to set
-              ``trust_repo`` to either ``False``, ``True`` or ``"check"``. This
-              is only present for backward compatibility and will be removed in
-              v2.0.
 
-            Default is ``None`` and will eventually change to ``"check"`` in v2.0.
+            Default is ``check``.
         force_reload (bool, optional): whether to force a fresh download of
             the github repo unconditionally. Does not have any effect if
             ``source = 'local'``. Default is ``False``.
