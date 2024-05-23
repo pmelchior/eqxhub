@@ -356,15 +356,18 @@ def set_dir(d):
     _hub_dir = os.path.expanduser(d)
 
 
-def list(github, force_reload=False, skip_validation=False, trust_repo=None):
+def list(repo_or_dir, source='github', force_reload=False, skip_validation=False, trust_repo=None, verbose=True):
     r"""
     List all callable entrypoints available in the repo specified by ``github``.
 
     Args:
-        github (str): a string with format "repo_owner/repo_name[:ref]" with an optional
-            ref (tag or branch). If ``ref`` is not specified, the default branch is assumed to be ``main`` if
-            it exists, and otherwise ``master``.
-            Example: 'pytorch/vision:0.10'
+        repo_or_dir (str): If ``source`` is 'github',
+            this should correspond to a github repo with format ``repo_owner/repo_name[:ref]`` with
+            an optional ref (tag or branch), for example 'pytorch/vision:0.10'. If ``ref`` is not specified,
+            the default branch is assumed to be ``main`` if it exists, and otherwise ``master``.
+            If ``source`` is 'local'  then it should be a path to a local directory.
+        source (str, optional): 'github' or 'local'. Specifies how
+            ``repo_or_dir`` is to be interpreted. Default is 'github'.
         force_reload (bool, optional): whether to discard the existing cache and force a fresh download.
             Default is ``False``.
         skip_validation (bool, optional): if ``False``, eqxhub will check that the branch or commit
@@ -388,6 +391,10 @@ def list(github, force_reload=False, skip_validation=False, trust_repo=None):
               v2.0.
 
             Default is ``None`` and will eventually change to ``"check"`` in v2.0.
+        verbose (bool, optional): If ``False``, mute messages about hitting
+            local caches. Note that the message about first download cannot be
+            muted. Does not have any effect if ``source = 'local'``.
+            Default is ``True``.
 
     Returns:
         list: The available callables entrypoint
@@ -395,11 +402,16 @@ def list(github, force_reload=False, skip_validation=False, trust_repo=None):
     Example:
         >>> entrypoints = eqxhub.list('pytorch/vision', force_reload=True)
     """
-    repo_dir = _get_cache_or_reload(github, force_reload, trust_repo, "list", verbose=True,
-                                    skip_validation=skip_validation)
+    if source not in ('github', 'local'):
+        raise ValueError(
+            f'Unknown source: "{source}". Allowed values: "github" | "local".')
 
-    with _add_to_sys_path(repo_dir):
-        hubconf_path = os.path.join(repo_dir, MODULE_HUBCONF)
+    if source == 'github':
+        repo_or_dir = _get_cache_or_reload(repo_or_dir, force_reload, trust_repo, "load",
+                                           verbose=verbose, skip_validation=skip_validation)
+
+    with _add_to_sys_path(repo_or_dir):
+        hubconf_path = os.path.join(repo_or_dir, MODULE_HUBCONF)
         hub_module = _import_module(MODULE_HUBCONF, hubconf_path)
 
     # We take functions starts with '_' as internal helper functions
@@ -408,16 +420,21 @@ def list(github, force_reload=False, skip_validation=False, trust_repo=None):
     return entrypoints
 
 
-def help(github, model, force_reload=False, skip_validation=False, trust_repo='check'):
+def help(repo_or_dir, model, source='github', force_reload=False, skip_validation=False, trust_repo='check',
+         verbose=True):
     r"""
     Show the docstring of entrypoint ``model``.
 
     Args:
-        github (str): a string with format <repo_owner/repo_name[:ref]> with an optional
-            ref (a tag or a branch). If ``ref`` is not specified, the default branch is assumed
-            to be ``main`` if it exists, and otherwise ``master``.
-            Example: 'pytorch/vision:0.10'
-        model (str): a string of entrypoint name defined in repo's ``hubconf.py``
+        repo_or_dir (str): If ``source`` is 'github',
+            this should correspond to a github repo with format ``repo_owner/repo_name[:ref]`` with
+            an optional ref (tag or branch), for example 'pytorch/vision:0.10'. If ``ref`` is not specified,
+            the default branch is assumed to be ``main`` if it exists, and otherwise ``master``.
+            If ``source`` is 'local'  then it should be a path to a local directory.
+        model (str): the name of a callable (entrypoint) defined in the
+            repo/dir's ``hubconf.py``.
+        source (str, optional): 'github' or 'local'. Specifies how
+            ``repo_or_dir`` is to be interpreted. Default is 'github'.
         force_reload (bool, optional): whether to discard the existing cache and force a fresh download.
             Default is ``False``.
         skip_validation (bool, optional): if ``False``, eqxhub will check that the ref
@@ -437,14 +454,24 @@ def help(github, model, force_reload=False, skip_validation=False, trust_repo='c
               behaviour will fall back onto the ``trust_repo=False`` option.
             
             Default is ``check``.
+        verbose (bool, optional): If ``False``, mute messages about hitting
+            local caches. Note that the message about first download cannot be
+            muted. Does not have any effect if ``source = 'local'``.
+            Default is ``True``.
+
     Example:
         >>> print(eqxhub.help('pytorch/vision', 'resnet18', force_reload=True))
     """
-    repo_dir = _get_cache_or_reload(github, force_reload, trust_repo, "help", verbose=True,
-                                    skip_validation=skip_validation)
+    if source not in ('github', 'local'):
+        raise ValueError(
+            f'Unknown source: "{source}". Allowed values: "github" | "local".')
 
-    with _add_to_sys_path(repo_dir):
-        hubconf_path = os.path.join(repo_dir, MODULE_HUBCONF)
+    if source == 'github':
+        repo_or_dir = _get_cache_or_reload(repo_or_dir, force_reload, trust_repo, "load",
+                                           verbose=verbose, skip_validation=skip_validation)
+
+    with _add_to_sys_path(repo_or_dir):
+        hubconf_path = os.path.join(repo_or_dir, MODULE_HUBCONF)
         hub_module = _import_module(MODULE_HUBCONF, hubconf_path)
 
     entry = _load_entry_from_hubconf(hub_module, model)
